@@ -1,15 +1,16 @@
-
-document.addEventListener("deviceready", onDeviceReady, false);
+$(document).ready(function() {
+    document.addEventListener("deviceReady",onDeviceReady,false);
+});
 
 function onDeviceReady() {
 	setTimeout(function() {
 		if(iplover.auth.getToken() && iplover.auth.getToken() != ''){
         	location.href = "home.html";
     	}
-	
+
     	 navigator.splashscreen.hide();
 	}, 2000);
-    
+
 };
 
 function onfail(message){
@@ -23,19 +24,13 @@ function onlogin(token, group){
 };
 
 $(document).ready(function() {
-    
+
     $("#login_button").click(function(){
-        
+
         user = $('#username_input').val();
         pass = $('#password_input').val();
-        
+
         iplover.auth.login(user, pass, onlogin, onfail);
         $("#spinner-img").show();
     });
 });
-
-
-
-
-
-

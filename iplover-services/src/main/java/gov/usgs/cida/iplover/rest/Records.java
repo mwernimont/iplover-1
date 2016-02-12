@@ -7,34 +7,18 @@ import gov.usgs.cida.iplover.dao.SiteRecordDao;
 import gov.usgs.cida.iplover.model.IploverRecord;
 import gov.usgs.cida.iplover.util.ImageStorage;
 import gov.usgs.cida.iplover.util.IploverAuth;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.PrintWriter;
-import java.security.cert.X509Certificate;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import javax.sql.DataSource;
 import javax.ws.rs.Consumes;
-import javax.ws.rs.FormParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
-import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Request;
 import javax.ws.rs.core.Response;
 import org.apache.log4j.Logger;
 import java.text.DateFormat;
-import java.util.HashMap;
 import java.util.List;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.NotAuthorizedException;
@@ -148,20 +132,30 @@ public class Records {
             return Response.status(500).entity(ioe.getMessage()).build();
             
         }catch(org.apache.ibatis.exceptions.PersistenceException ibatise){
+            LOG.error(ibatise);
             return Response.status(500).entity(ibatise.getMessage()).build();
         }
         
-        //Strip out image data from JSON and store on AWS
-        DataUri parsedImage = DataUri.parse(record.image_fileurl, java.nio.charset.StandardCharsets.UTF_8);
+        LOG.info("Check image fileurl to see if we have an image.");
         
-        //Strip the image out of the record once parsed (we return the record later, make it small)
-        record.image_fileurl = "";
+        if(!"missing".equals(record.image_fileurl)){
+            LOG.info("We have an image. Storing image on AWS.");
+            //Strip out image data from JSON and store on AWS
+            DataUri parsedImage = DataUri.parse(record.image_fileurl, java.nio.charset.StandardCharsets.UTF_8);
+
+            //Strip the image out of the record once parsed (we return the record later, make it small)
+            record.image_fileurl = "";
+
+            try{
+                ImageStorage.save(parsedImage.getData(), record.uuid);
+            }catch(IOException ioe){
+                LOG.error(ioe);
+                return Response.status(500).entity("Unable to store submitted image.").build();
+            }
         
-        try{
-            ImageStorage.save(parsedImage.getData(), record.uuid);
-        }catch(IOException ioe){
-            LOG.error(ioe);
-            return Response.status(500).entity("Unable to store submitted image.").build();
+        }else{
+            LOG.info("No Image, skip...");
+            record.image_fileurl = "";
         }
         
         record.changes_synced = true;
@@ -189,6 +183,7 @@ public class Records {
         try{
             group = auth.getIploverGroup(token);
         }catch(NotAuthorizedException nae){
+            LOG.debug(nae);
             return Response.status(401).entity("No auth record found, please re-login.").build();
         }
         
@@ -211,8 +206,10 @@ public class Records {
         IploverRecord oldRecord = dao.getByUuid(record.uuid);
         
         if(oldRecord == null){
+            LOG.warn("400: No record with supplied UUID to update:" + record.uuid);
             return Response.status(400).entity("No record with supplied UUID to update").build();
         }else if(!oldRecord.collection_group.equals(group)){
+            LOG.warn("401: Insufficient access rights to edit:" + record.uuid);
             return Response.status(401).entity("Insufficient access rights to edit").build();
         }
         

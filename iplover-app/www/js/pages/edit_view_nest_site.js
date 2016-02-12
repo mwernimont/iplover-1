@@ -13,8 +13,11 @@ location.search.replace(
 if(queryinfo.sourceurl){
     sourceurl = queryinfo.sourceurl;
 }
-
 $(document).ready(function() {
+    document.addEventListener("deviceReady",onDeviceReady,false);
+});
+
+function onDeviceReady(){
     
     $("#home_link").attr("href", sourceurl);
     
@@ -51,7 +54,7 @@ $(document).ready(function() {
     $('#new_site_form').submit(save_form);
     $('#delete_button').click(delete_record);
     
-});
+};
 
 var populate_form = function(rec){
     
@@ -105,9 +108,9 @@ var save_form = function(e){
     
     //geo radio buttons
     rec.setting = $('input[name=setting]:checked').val();
-    rec.substrate = $('input[name=substrate]:checked').val()
-    rec.vegetation = $('input[name=vegetation]:checked').val()
-    rec.density = $('input[name=density]:checked').val()
+    rec.substrate = $('input[name=substrate]:checked').val();
+    rec.vegetation = $('input[name=vegetation]:checked').val();
+    rec.density = $('input[name=density]:checked').val();
     
     //init and notes
     rec.nest_init = $('#nest_init').val();
@@ -115,6 +118,11 @@ var save_form = function(e){
     
     //only if set to edited
     rec.changes_synced = false;
+	
+	//Time of last Edit. One is for server, one is for calculations
+    var timeSet = new Date();
+    rec.last_edited_calculations = timeSet.getTime(); 
+    rec.last_edited = timeSet.format("yyyy-mm-dd HH:MM:ss");
     
     iplover.data.setRecordById(rec.uuid, rec);
     
@@ -131,10 +139,10 @@ var delete_record = function(e){
     }
     
     var rec = editing_record;
-    iplover.data.deleteImage(rec.uuid, function(){"Deleted image" + rec.uuid;});
-    rec.deleted = true;
-    rec.changes_synced = false;
+	//If we are deleting record, mark for deletion
+	rec.deleted = true;
+	rec.changes_synced = false;
     iplover.data.setRecordById(rec.uuid, rec);
     
-    window.location.href = sourceurl;
+	window.location.href = sourceurl;
 }
